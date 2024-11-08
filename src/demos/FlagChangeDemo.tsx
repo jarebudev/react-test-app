@@ -1,11 +1,14 @@
 import {
-  InMemoryProvider,
   OpenFeature,
   OpenFeatureProvider,
   useBooleanFlagDetails,
+  useStringFlagDetails,
+  useObjectFlagDetails,
+  Logger
 } from "@openfeature/react-sdk";
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { UnleashWebProvider } from '@openfeature/unleash-web-provider';
 import {
   FLAG_CHANGE_DEMO_EXPLANATION,
   FLAG_CHANGE_DEMO_NAME
@@ -16,6 +19,24 @@ import "./Demo.css";
 const PROVIDER_NAME = FLAG_CHANGE_DEMO_NAME;
 const newMessageName = "new-message";
 
+const logger: Logger = new class {
+    error(...args: unknown[]): void {
+        console.error(...args);
+    }
+
+    warn(...args: unknown[]): void {
+        console.warn(...args);
+    }
+
+    info(...args: unknown[]): void {
+        console.info(...args);
+    }
+
+    debug(...args: unknown[]): void {
+        console.debug(...args);
+    }
+}();
+
 /**
  * This component is associated with a provider whose flags change every 2 seconds.
  * It demonstrates the React SDKs ability to dynamically react to flag changes from the provider.
@@ -23,33 +44,14 @@ const newMessageName = "new-message";
 function FlagChangeDemo() {
   const [searchParams] = useSearchParams();
 
-  const flagConfig = {
-    [newMessageName]: {
-      disabled: false,
-      variants: {
-        on: true,
-        off: false,
-      },
-      defaultVariant: "off",
-    },
-  };
-  const provider = new InMemoryProvider(flagConfig);
+  const provider = new UnleashWebProvider({
+      url: 'http://localhost:3030/proxy',
+      clientKey: 'clientsecret',
+      appName: 'staging',
+  }, logger);
 
   // set our provider, give it a name matching the scope of our OpenFeatureProvider below
   OpenFeature.setProvider(PROVIDER_NAME, provider);
-
-  // start an interval to change the flag vales every 2s for demo purposes
-  const interval = window.setInterval(() => {
-    flagConfig[newMessageName].defaultVariant =
-      flagConfig[newMessageName].defaultVariant === "on" ? "off" : "on";
-    provider.putConfiguration(flagConfig);
-  }, Number.parseInt(searchParams.get("delay") || "2000"));
-
-  useEffect(() => {
-    return () => {
-      window.clearInterval(interval);
-    };
-  });
 
   return (
     // this page is scoped to the "flag-change" provider.
@@ -82,9 +84,9 @@ function Spinner() {
         alt="logo"
       />
       {showNewMessage ? (
-        <p>Welcome to this OpenFeature-enabled React app!</p>
+        <p>Welcome to this OpenFeature-enabled React app! </p>
       ) : (
-        <p>Welcome to this React app.</p>
+        <p>Welcome to this React app. {showNewMessage} </p>
       )}
     </>
   );

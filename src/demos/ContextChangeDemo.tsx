@@ -1,13 +1,14 @@
 import {
   EvaluationContext,
-  InMemoryProvider,
   OpenFeature,
   OpenFeatureProvider,
   useBooleanFlagDetails,
   useFlag,
+  Logger
 } from "@openfeature/react-sdk";
 import { Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+import { UnleashWebProvider } from '@openfeature/unleash-web-provider';
 import {
   CONTEXT_CHANGE_DEMO_EXPLANATION,
   CONTEXT_CHANGE_DEMO_NAME,
@@ -18,6 +19,24 @@ import "./Demo.css";
 
 const PROVIDER_NAME = CONTEXT_CHANGE_DEMO_NAME;
 
+const logger: Logger = new class {
+    error(...args: unknown[]): void {
+        console.error(...args);
+    }
+
+    warn(...args: unknown[]): void {
+        console.warn(...args);
+    }
+
+    info(...args: unknown[]): void {
+        console.info(...args);
+    }
+
+    debug(...args: unknown[]): void {
+        console.debug(...args);
+    }
+}();
+
 /**
  * A component associated with a provider that becomes ready after a few seconds.
  * It demonstrates the "Suspense" support of the React SDK.
@@ -26,27 +45,12 @@ function ContextChangeDemo() {
   const [searchParams] = useSearchParams();
 
   const goFastName = "go-fast";
-  const flagConfig = {
-    [goFastName]: {
-      disabled: false,
-      variants: {
-        on: true,
-        off: false,
-      },
-      defaultVariant: "on",
-      contextEvaluator: (context: EvaluationContext) => {
-        if (context.silly) {
-          return "on";
-        }
-        return "off";
-      },
-    },
-  };
 
-  const provider = new DelayedContextUpdateProvider(
-    flagConfig,
-    Number.parseInt(searchParams.get("delay") || "0")
-  );
+  const provider = new UnleashWebProvider({
+      url: 'http://localhost:3030/proxy',
+      clientKey: 'clientsecret',
+      appName: 'context-change',
+  }, logger);
 
   // Set our provider, give it a name matching the scope of our OpenFeatureProvider below
   OpenFeature.setProvider(PROVIDER_NAME, provider);
@@ -80,12 +84,12 @@ function ContextChangeButton() {
       <button
         onClick={() => {
           OpenFeature.setContext(PROVIDER_NAME, {
-            silly: !OpenFeature.getContext(PROVIDER_NAME).silly,
+            userId: OpenFeature.getContext(PROVIDER_NAME).userId === 'user1' ? 'user2' : 'user1',
           });
         }}
       >
         here
-      </button>
+      </button>!OpenFeature.getContext(PROVIDER_NAME).user
       <span> to modify the evaluation context</span>
     </span>
   );
@@ -115,26 +119,6 @@ function Spinner() {
   );
 }
 
-/**
- * A provider who's onContextChange is delayed for 'delay' seconds to demonstrate the React SDK's Suspense features.
- */
-class DelayedContextUpdateProvider extends InMemoryProvider {
-  constructor(
-    flagConfiguration: ConstructorParameters<typeof InMemoryProvider>[0],
-    private delay: number
-  ) {
-    super(flagConfiguration);
-  }
-
-  // override to artificially delay our context change for demo purposes
-  async onContextChange(
-    oldContext: EvaluationContext,
-    newContext: EvaluationContext
-  ): Promise<void> {
-      await new Promise((resolve) => setTimeout(resolve, this.delay)).then(() => {
-    });
-  }
-}
 
 function Fallback() {
   return (
